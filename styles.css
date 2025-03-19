@@ -17,9 +17,9 @@
 .heatmap-container {
   width: 100%;
   height: 100%;
-  margin: 0 auto; 
-  padding: 0 16px;
   /* Keep a minimal or no overflow. Let the dynamic columns handle it. */
+  margin: 0 auto;
+  padding: 0 16px;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -40,7 +40,7 @@
 }
 
 /* Each day is a 12x12 cell with a slight hover effect. */
-/* .heatmap-day {
+.heatmap-day {
   width: 12px;
   height: 12px;
   border-radius: 2px;
@@ -51,4 +51,4 @@
 .heatmap-day:hover {
   transform: scale(1.2);
   z-index: 2;
-} */
+}
