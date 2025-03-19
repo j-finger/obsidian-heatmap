@@ -1,0 +1,42 @@
+/* Outer container for the heatmap */
+.heatmap-container {
+  padding: 8px;
+  font-family: sans-serif;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden; /* We will reflow columns on resize */
+}
+
+/* The grid is a horizontal row of weekly columns */
+.heatmap-grid {
+  display: flex;
+  gap: 4px; /* spacing between columns */
+}
+
+/* Each column is a week of 7 days stacked vertically */
+.heatmap-week {
+  display: flex;
+  flex-direction: column;
+  gap: 4px; /* spacing between days */
+}
+
+/* Each day is a small square cell */
+.heatmap-day {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: transform 0.1s ease-in-out;
+}
+
+.heatmap-day:hover {
+  transform: scale(1.2);
+  z-index: 2;
+}
+
+.heatmap-legend {
+  margin-top: 10px;
+  font-size: 0.8em;
+  opacity: 0.7;
+  text-align: center;
+}
