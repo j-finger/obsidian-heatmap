@@ -1,57 +1,54 @@
-/* Remove all padding/margin from the main view container */
-.heatmap-minimal-view {
-  margin: 0 !important;
-  padding: 0 !important;
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
-  display: flex;           /* Fill the entire leaf space */
-  align-items: center;     /* Vertically center the content */
-  justify-content: center; /* Horizontally center */
-  overflow: hidden;        /* No scrollbars */
-}
+/*
+  Use Obsidian's default .view-content padding by
+  simply allowing the standard layout, or by
+  adding minimal overrides if needed.
+*/
 
-/* The container for the heatmap itself */
-.heatmap-container {
+/* Class added to the view container to restore typical Obsidian spacing */
+.heatmap-default-padding {
+  /* Typically, Obsidian applies ~16px of padding to .view-content, so
+     you can either rely on that or set your own here if you want. */
   margin: 0;
   padding: 0;
+  /* We'll let Obsidian handle the default padding in the .view-content. */
+}
+
+/* The heatmap container, now sized to fill the content area minus Obsidian's padding. */
+.heatmap-container {
   width: 100%;
   height: 100%;
-  box-sizing: border-box;
+  margin: 0 auto; 
+  padding: 0 16px;
+  /* Keep a minimal or no overflow. Let the dynamic columns handle it. */
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* The grid is a horizontal row of weekly columns, with minimal gap. */
+/* The grid is a row of columns (weeks), with a small gap. */
 .heatmap-grid {
   display: flex;
   gap: 4px;
-  margin: 0;
-  padding: 0;
 }
 
-/* Each week is a column of 7 days stacked vertically, with minimal gap. */
+/* Each column is 7 days stacked vertically. */
 .heatmap-week {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin: 0;
-  padding: 0;
 }
 
-/* Each day is a small square cell, no extra space. */
-.heatmap-day {
+/* Each day is a 12x12 cell with a slight hover effect. */
+/* .heatmap-day {
   width: 12px;
   height: 12px;
   border-radius: 2px;
   cursor: pointer;
   transition: transform 0.1s ease-in-out;
-  margin: 0;
-  padding: 0;
 }
 
 .heatmap-day:hover {
   transform: scale(1.2);
   z-index: 2;
-}
+} */

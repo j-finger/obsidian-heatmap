@@ -9,7 +9,7 @@ const {
 
 /** ========== SETTINGS ========== */
 const DEFAULT_SETTINGS = {
-	targetFolder: "",
+	targetFolder: "", // If blank, track entire vault
 };
 
 class MinimalHeatmapSettingsTab extends PluginSettingTab {
@@ -49,7 +49,7 @@ class MinimalHeatmapView extends ItemView {
 
 		this.dailyCounts = null;
 		this.resizeObserver = null;
-		this.lastWidth = 0; // track last measured width to avoid tiny refresh flickers
+		this.lastWidth = 0;
 	}
 
 	getViewType() {
@@ -61,22 +61,21 @@ class MinimalHeatmapView extends ItemView {
 	}
 
 	async onOpen() {
-		// Clear any existing content
 		this.containerEl.empty();
 
-		// Add a special class to the view container to override Obsidian defaults
-		this.containerEl.classList.add("heatmap-minimal-view");
+		// Add a class to style the container with Obsidian's default padding
+		this.containerEl.classList.add("heatmap-default-padding");
 
-		// Create an inner container for the heatmap
+		// Create a child container for the heatmap
 		this.heatmapContainer = this.containerEl.createDiv({ cls: "heatmap-container" });
 
-		// Prepare the grid element (populated after measuring width)
+		// Prepare the grid element
 		this.gridEl = this.heatmapContainer.createDiv({ cls: "heatmap-grid" });
 
-		// Collect file activity data once
+		// Gather file activity
 		this.dailyCounts = await this.gatherFileActivity();
 
-		// Observe container size changes
+		// Observe size changes
 		this.setupResizeObserver();
 	}
 
@@ -91,7 +90,7 @@ class MinimalHeatmapView extends ItemView {
 		this.resizeObserver = new ResizeObserver((entries) => {
 			for (let entry of entries) {
 				const w = entry.contentRect.width;
-				// Only rebuild if width changes by at least 2px to reduce flicker
+				// Only rebuild if width changes by >= 2px to avoid flicker
 				if (Math.abs(w - this.lastWidth) >= 2) {
 					this.buildHeatmap(w);
 					this.lastWidth = w;
@@ -110,10 +109,10 @@ class MinimalHeatmapView extends ItemView {
 		if (!this.gridEl || !this.dailyCounts) return;
 		this.gridEl.empty();
 
-		// Each column is ~16px (12px cell + 4px gap).
+		// Each column is ~16px (12px cell + ~4px gap).
 		const COLUMN_WIDTH = 16;
 		let numWeeks = Math.floor(containerWidth / COLUMN_WIDTH);
-		if (numWeeks < 1) numWeeks = 1; // Ensure at least one column
+		if (numWeeks < 1) numWeeks = 1; // at least 1 column
 
 		const today = moment().startOf("day");
 		const startDate = today.clone().subtract(numWeeks - 1, "weeks").startOf("week");
@@ -129,13 +128,11 @@ class MinimalHeatmapView extends ItemView {
 				dayCell.setAttr("data-date", dateKey);
 				dayCell.setAttr("data-count", count);
 				dayCell.setAttr("title", `${dateKey}: ${count} changes`);
-
 				dayCell.style.backgroundColor = this.getColor(count);
 			}
 		}
 	}
 
-	/** Gather creation + modification counts per day. */
 	async gatherFileActivity() {
 		const dailyCounts = {};
 		const files = this.app.vault.getFiles();
@@ -155,11 +152,10 @@ class MinimalHeatmapView extends ItemView {
 	}
 
 	isInTargetFolder(file, folderPath) {
-		if (!folderPath) return true; // Entire vault
+		if (!folderPath) return true;
 		return file.path.toLowerCase().startsWith(folderPath.toLowerCase() + "/");
 	}
 
-	// GitHub-like color scale
 	getColor(count) {
 		if (count === 0) return "#ebedf0";
 		if (count < 3) return "#c6e48b";
@@ -172,20 +168,20 @@ class MinimalHeatmapView extends ItemView {
 /** ========== MAIN PLUGIN CLASS ========== */
 module.exports = class MinimalHeatmapPlugin extends Plugin {
 	async onload() {
-		console.log("Loading Minimal Dynamic Heatmap Plugin (Refined)");
+		console.log("Loading Minimal Dynamic Heatmap Plugin (With Default Padding)");
 
 		await this.loadSettings();
 
-		// Register the custom heatmap view
+		// Register the custom view
 		this.registerView(
 			HEATMAP_VIEW_TYPE,
 			(leaf) => new MinimalHeatmapView(leaf, this)
 		);
 
-		// Add a settings tab
+		// Add settings
 		this.addSettingTab(new MinimalHeatmapSettingsTab(this.app, this));
 
-		// Open the view in the left sidebar automatically
+		// Automatically open in the left sidebar
 		this.activateView();
 	}
 
