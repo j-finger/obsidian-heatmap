@@ -1,20 +1,34 @@
-/* Fully minimal container: no padding, no scrollbars. */
-.heatmap-container {
-  margin: 0;
-  padding: 0;
-  display: flex;
-  align-items: center;      /* Vertically center in sidebar */
-  justify-content: center;  /* Horizontally center */
-  overflow: hidden;         /* No scrollbars */
+/* Remove all padding/margin from the main view container */
+.heatmap-minimal-view {
+  margin: 0 !important;
+  padding: 0 !important;
   width: 100%;
   height: 100%;
   box-sizing: border-box;
+  display: flex;           /* Fill the entire leaf space */
+  align-items: center;     /* Vertically center the content */
+  justify-content: center; /* Horizontally center */
+  overflow: hidden;        /* No scrollbars */
+}
+
+/* The container for the heatmap itself */
+.heatmap-container {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* The grid is a horizontal row of weekly columns, with minimal gap. */
 .heatmap-grid {
   display: flex;
-  gap: 4px; /* spacing between columns */
+  gap: 4px;
+  margin: 0;
+  padding: 0;
 }
 
 /* Each week is a column of 7 days stacked vertically, with minimal gap. */
@@ -22,18 +36,21 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  margin: 0;
+  padding: 0;
 }
 
-/* Each day is a small square cell. */
+/* Each day is a small square cell, no extra space. */
 .heatmap-day {
   width: 12px;
   height: 12px;
   border-radius: 2px;
   cursor: pointer;
   transition: transform 0.1s ease-in-out;
+  margin: 0;
+  padding: 0;
 }
 
-/* Scale up on hover for a subtle highlight. */
 .heatmap-day:hover {
   transform: scale(1.2);
   z-index: 2;
