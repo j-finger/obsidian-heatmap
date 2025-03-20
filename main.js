@@ -65,8 +65,6 @@ class HeatmapSettingsTab extends PluginSettingTab {
 
 	display() {
 		const { containerEl } = this;
-		containerEl.empty();
-		containerEl.createEl("h2", { text: "Heatmap Settings" });
 
 		// Target Folder setting with validation
 		new Setting(containerEl)
