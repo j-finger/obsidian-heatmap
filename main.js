@@ -9,14 +9,48 @@ const {
 } = require("obsidian");
 
 /** ========== SETTINGS ========== */
+// const DEFAULT_SETTINGS = {
+// 	targetFolder: "", // If blank, track entire vault
+// 	// new settings for colourways
+// 	colourwaysPresetJSON: '[{"name":"Warm","colours":["#FF0000", "#FFA500", "#FFFF00", "#FF1493", "#FF00FF", "#FF4500"]},{"name":"Cool","colours":["#0000FF", "#00FFFF", "#000080", "#800080"]}]',
+// 	selectedColourway: "Warm",
+// 	// new settings for folder name and icon selection
+// 	folderName: "Heatmap",
+// 	iconSelection: "activity"
+// };
+
 const DEFAULT_SETTINGS = {
-	targetFolder: "", // If blank, track entire vault
-	// new settings for colourways
-	colourwaysPresetJSON: '[{"name":"Warm","colours":["#FF0000", "#FFA500", "#FFFF00", "#FF1493", "#FF00FF", "#FF4500"]},{"name":"Cool","colours":["#0000FF", "#00FFFF", "#000080", "#800080"]}]',
-	selectedColourway: "Warm",
-	// new settings for folder name and icon selection
-	folderName: "Heatmap",
-	iconSelection: "activity"
+    targetFolder: "",
+    // Put your default colourways here as a string
+    colourwaysPresetJSON: JSON.stringify([
+        {
+            "name": "Warm 1",
+            "colours": ["#ffc000", "#fda456", "#f7642e", "#ff4948", "#fe0000"]
+        },
+        {
+            "name": "Warm 2",
+            "colours": ["#FFC000", "#FDA456", "#F7642E", "#FF4948", "#FE0000", "#FF0A6F", "#F95CB3", "#FF9ADE"]
+        },
+        {
+            "name": "Miami",
+            "colours": ["#4CC9F0", "#4361ee", "#3a0ca3", "#560bad", "#7209b7", "#b5179e", "#f72585"]
+        },
+        {
+            "name": "Github",
+            "colours": ["#ebedf0", "#9be9a8", "#40c463", "#30a14e", "#216e39"]
+        },
+        {
+            "name": "Cool",
+            "colours": ["#84DCC6", "#A5FFD6", "#00A7E1", "#007EA7", "#003459"]
+        },
+        {
+            "name": "Natural",
+            "colours": ["#d9ed92", "#b5e48c", "#99d98c", "#76c893", "#52b69a", "#34a0a4", "#168aad", "#1a759f", "#1e6091", "#184e77"]
+        }
+    ]),
+    selectedColourway: "Natural",
+    folderName: "Heatmap",
+    iconSelection: "activity"
 };
 
 class HeatmapSettingsTab extends PluginSettingTab {
@@ -130,6 +164,19 @@ class HeatmapSettingsTab extends PluginSettingTab {
 				});
 			});
 		});
+
+	new Setting(containerEl)
+		.setName("Reset to defaults")
+		.setDesc("Reset the plugin's settings to the factory defaults.")
+		.addButton((btn) => {
+			btn.setButtonText("Reset");
+			btn.onClick(async () => {
+				Object.assign(this.plugin.settings, DEFAULT_SETTINGS);
+				await this.plugin.saveSettings();
+				this.plugin.refreshHeatmapView();
+				this.display();
+			});
+		});
 	}
 }
 
@@ -234,11 +281,16 @@ class HeatmapView extends ItemView {
 				dayCell.setAttr("data-count", count);
 				dayCell.setAttr("title", `${dateKey}: ${count} changes`);
 				dayCell.style.backgroundColor = this.getColor(count);
+
+				dayCell.addEventListener("click", (evt) => {
+					this.showDayPopup(evt, dateKey);
+				});
 			}
 		}
 	}
 
 	async gatherFileActivity() {
+		this.dailyFiles = {};
 		const dailyCounts = {};
 		const files = this.app.vault.getFiles();
 		const folderPath = this.plugin.settings.targetFolder;
@@ -246,12 +298,149 @@ class HeatmapView extends ItemView {
 		for (const file of files) {
 			if (!this.isInTargetFolder(file, folderPath)) continue;
 
-			const { ctime, mtime } = file.stat;
-			const cDate = moment(ctime).startOf("day").format("YYYY-MM-DD");
-			const mDate = moment(mtime).startOf("day").format("YYYY-MM-DD");
+			const cDate = moment(file.stat.ctime).startOf("day").format("YYYY-MM-DD");
+			const mDate = moment(file.stat.mtime).startOf("day").format("YYYY-MM-DD");
 
 			dailyCounts[cDate] = (dailyCounts[cDate] || 0) + 1;
 			dailyCounts[mDate] = (dailyCounts[mDate] || 0) + 1;
+
+			this.dailyFiles[cDate] = this.dailyFiles[cDate] || [];
+			this.dailyFiles[mDate] = this.dailyFiles[mDate] || [];
+			this.dailyFiles[cDate].push(file.path);
+			this.dailyFiles[mDate].push(file.path);
+		}
+		return dailyCounts;
+	}
+
+	showDayPopup(evt, dateKey) {
+		document.querySelectorAll(".day-popup").forEach(el => el.remove());
+
+		const filesForDate = this.dailyFiles?.[dateKey] || [];
+		if (!filesForDate.length) return;
+
+		const popup = createDiv({ cls: "day-popup" });
+		popup.style.position = "absolute";
+		popup.style.left = evt.pageX + "px";
+		popup.style.top = evt.pageY + "px";
+		popup.style.zIndex = 9999;
+
+		filesForDate.forEach(path => {
+			const linkEl = popup.createEl("a", { text: path });
+			linkEl.href = "#";
+			linkEl.style.display = "block";
+			// linkEl.style.color = "#fff";
+			linkEl.addEventListener("click", (e) => {
+				e.preventDefault();
+				this.openFile(path);
+				popup.remove();
+			});
+		});
+
+		document.body.appendChild(popup);
+
+		 // Adjust if the popup goes off-screen
+		window.requestAnimationFrame(() => {
+			const rect = popup.getBoundingClientRect();
+			if (rect.bottom > window.innerHeight) {
+				popup.style.top = (window.innerHeight - rect.height - 10) + "px";
+			}
+		});
+
+		const removePopup = (e) => {
+			if (!popup.contains(e.target)) {
+				popup.remove();
+				window.removeEventListener("mousedown", removePopup);
+			}
+		};
+		window.addEventListener("mousedown", removePopup);
+	}
+
+	openFile(path) {
+		const file = this.app.vault.getAbstractFileByPath(path);
+		if (file) {
+			this.app.workspace.getLeaf(true).openFile(file);
+		}
+	}
+
+	onClose() {
+		if (this.resizeObserver) {
+			this.resizeObserver.disconnect();
+		}
+	}
+
+	setupResizeObserver() {
+		if (!this.heatmapContainer) return;
+		this.resizeObserver = new ResizeObserver((entries) => {
+			for (let entry of entries) {
+				const w = entry.contentRect.width;
+				// Only rebuild if width changes by >= 2px to avoid flicker
+				if (Math.abs(w - this.lastWidth) >= 2) {
+					this.buildHeatmap(w);
+					this.lastWidth = w;
+				}
+			}
+		});
+		this.resizeObserver.observe(this.heatmapContainer);
+
+		// Initial build
+		const initialWidth = this.heatmapContainer.offsetWidth;
+		this.buildHeatmap(initialWidth);
+		this.lastWidth = initialWidth;
+	}
+
+	buildHeatmap(containerWidth) {
+		if (!this.gridEl || !this.dailyCounts) return;
+		this.gridEl.empty();
+
+		const COLUMN_WIDTH = 16;
+		let numWeeks = Math.floor(containerWidth / COLUMN_WIDTH);
+		if (numWeeks < 1) numWeeks = 1;
+
+		const today = moment().startOf("day");
+		const startDate = today.clone().subtract(numWeeks - 1, "weeks").startOf("week");
+
+		for (let w = 0; w < numWeeks; w++) {
+			const weekDiv = this.gridEl.createDiv({ cls: "heatmap-week" });
+			for (let d = 0; d < 7; d++) {
+				const currentDate = startDate.clone().add(w, "weeks").add(d, "days");
+				// Skip future days
+				if (currentDate.isAfter(today)) continue;
+
+				const dateKey = currentDate.format("YYYY-MM-DD");
+				const count = this.dailyCounts[dateKey] || 0;
+
+				const dayCell = weekDiv.createDiv({ cls: "heatmap-day" });
+				dayCell.setAttr("data-date", dateKey);
+				dayCell.setAttr("data-count", count);
+				dayCell.setAttr("title", `${dateKey}: ${count} changes`);
+				dayCell.style.backgroundColor = this.getColor(count);
+
+				dayCell.addEventListener("click", (evt) => {
+					this.showDayPopup(evt, dateKey);
+				});
+			}
+		}
+	}
+
+	async gatherFileActivity() {
+		this.dailyFiles = {};
+		const dailyCounts = {};
+		const files = this.app.vault.getFiles();
+		const folderPath = this.plugin.settings.targetFolder;
+
+		for (const file of files) {
+			if (!this.isInTargetFolder(file, folderPath)) continue;
+
+			const cDate = moment(file.stat.ctime).startOf("day").format("YYYY-MM-DD");
+			const mDate = moment(file.stat.mtime).startOf("day").format("YYYY-MM-DD");
+
+			dailyCounts[cDate] = (dailyCounts[cDate] || 0) + 1;
+			dailyCounts[mDate] = (dailyCounts[mDate] || 0) + 1;
+
+			this.dailyFiles[cDate] = this.dailyFiles[cDate] || [];
+			this.dailyFiles[mDate] = this.dailyFiles[mDate] || [];
+			this.dailyFiles[cDate].push(file.path);
+			this.dailyFiles[mDate].push(file.path);
 		}
 		return dailyCounts;
 	}

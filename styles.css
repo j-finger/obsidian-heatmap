@@ -52,3 +52,13 @@
   transform: scale(1.2);
   z-index: 2;
 }
+
+.day-popup {
+  position: absolute;
+  z-index: 9999;
+  display: block;
+  padding: 16px;
+  background-color: var(--background-primary);
+  border-radius: 8px;
+  border: 1px solid var(--background-modifier-border);
+}
