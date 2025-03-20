@@ -1,10 +1,10 @@
 {
 	"id": "obsidian-heatmap",
-	"name": "A Heatmap",
+	"name": "Heatmap",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Github-style sidebar heatmap for Obsidian",
-	"author": "JF",
+	"description": "Sidebar heatmap for Obsidian",
+	"author": "j-finger",
 	"authorUrl": "https://github.com/j-finger",
 	"fundingUrl": "https://github.com/j-finger",
 	"isDesktopOnly": false

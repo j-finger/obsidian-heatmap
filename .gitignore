@@ -1,12 +1,8 @@
-# vscode
 .vscode 
 *.iml
 .idea
 /snapshot
 node_modules
-
 *.map
-
 data.json
-
 .DS_Store

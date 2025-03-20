@@ -5,19 +5,11 @@ const {
 	Setting,
 	ItemView,
 	moment,
-	setIcon   // NEW: import setIcon utility
+	setIcon,
+	TFolder   // NEW: import TFolder for target folder validation
 } = require("obsidian");
 
 /** ========== SETTINGS ========== */
-// const DEFAULT_SETTINGS = {
-// 	targetFolder: "", // If blank, track entire vault
-// 	// new settings for colourways
-// 	colourwaysPresetJSON: '[{"name":"Warm","colours":["#FF0000", "#FFA500", "#FFFF00", "#FF1493", "#FF00FF", "#FF4500"]},{"name":"Cool","colours":["#0000FF", "#00FFFF", "#000080", "#800080"]}]',
-// 	selectedColourway: "Warm",
-// 	// new settings for folder name and icon selection
-// 	folderName: "Heatmap",
-// 	iconSelection: "activity"
-// };
 
 const DEFAULT_SETTINGS = {
     targetFolder: "",
@@ -25,7 +17,7 @@ const DEFAULT_SETTINGS = {
     colourwaysPresetJSON: JSON.stringify([
         {
             "name": "Warm 1",
-            "colours": ["#ffc000", "#fda456", "#f7642e", "#ff4948", "#fe0000"]
+            "colours": ["#ffc000", "#fda456", "#f7642e", "#ff4948"]
         },
         {
             "name": "Warm 2",
@@ -49,7 +41,7 @@ const DEFAULT_SETTINGS = {
         }
     ]),
     selectedColourway: "Natural",
-    folderName: "Heatmap",
+    folderName: "Vault Heatmap",
     iconSelection: "activity"
 };
 
@@ -59,31 +51,53 @@ class HeatmapSettingsTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	// Helper functions for basic validations
+	isValidFolder(folderPath) {
+		if (!folderPath.trim()) return true; // blank is allowed (entire vault)
+		const file = this.app.vault.getAbstractFileByPath(folderPath.trim());
+		return file && file instanceof TFolder;
+	}
+
+	isValidIcon(iconName) {
+		// Minimal check: non-empty string
+		return iconName.trim().length > 0;
+	}
+
 	display() {
 		const { containerEl } = this;
 		containerEl.empty();
-		containerEl.createEl("h2", { text: "Dynamic Heatmap Settings" });
+		containerEl.createEl("h2", { text: "Heatmap Settings" });
 
-		// Folder selection section
+		// Target Folder setting with validation
 		new Setting(containerEl)
 			.setName("Target Folder")
 			.setDesc("Track only files in this folder (and subfolders). Leave blank for entire vault.")
-			.addText((text) =>
+			.addText((text) => {
 				text
 					.setPlaceholder("e.g. FolderA/Subfolder")
 					.setValue(this.plugin.settings.targetFolder)
 					.onChange(async (value) => {
 						this.plugin.settings.targetFolder = value.trim();
+						// Validate folder – change border color accordingly
+						if (!this.isValidFolder(this.plugin.settings.targetFolder)) {
+							text.inputEl.style.borderColor = "red";
+						} else {
+							text.inputEl.style.borderColor = "";
+						}
 						await this.plugin.saveSettings();
 						this.plugin.refreshHeatmapView();
-					})
-			);
+					});
+				// Initial validation
+				if (!this.isValidFolder(this.plugin.settings.targetFolder)) {
+					text.inputEl.style.borderColor = "red";
+				}
+			});
 
-			// New: Folder Name input for title and tooltip use
+		// Folder Name setting (no validation needed)
 		new Setting(containerEl)
-			.setName("Folder Name")
+			.setName("Leaf Name")
 			.setDesc("Custom name used for the heatmap leaf title, panel tooltip, etc.")
-			.addText(text =>
+			.addText((text) =>
 				text
 					.setPlaceholder("Heatmap")
 					.setValue(this.plugin.settings.folderName)
@@ -94,26 +108,67 @@ class HeatmapSettingsTab extends PluginSettingTab {
 					})
 			);
 
-		// New: Icon Selection input
-		new Setting(containerEl)
-			.setName("Icon Selection")
-			.setDesc("Type the exact icon name from the Lucide icons Obsidian uses.")
-			.addText(text =>
+		// Icon Selection with simple validation check
+		const iconSetting = new Setting(containerEl)
+			.setName("Leaf Icon")
+			.setDesc("Loading...") // temporary text; overridden below
+			.addText((text) => {
 				text
 					.setPlaceholder("activity")
 					.setValue(this.plugin.settings.iconSelection)
 					.onChange(async (value) => {
 						this.plugin.settings.iconSelection = value.trim();
+						// Validate icon (for example, non-empty text)
+						if (!this.isValidIcon(this.plugin.settings.iconSelection)) {
+							text.inputEl.style.borderColor = "red";
+						} else {
+							text.inputEl.style.borderColor = "";
+						}
 						await this.plugin.saveSettings();
 						this.plugin.refreshHeatmapView();
-					})
-			);
+					});
+				// Initial validation check
+				if (!this.isValidIcon(this.plugin.settings.iconSelection)) {
+					text.inputEl.style.borderColor = "red";
+				}
+			});
+		// Override description to include HTML link
+		iconSetting.descEl.innerHTML = 'Type the exact <a href="https://lucide.dev/icons/" target="_blank" rel="noopener">Lucide icon</a> name';
+
+		// Apply and Reset buttons on the same line – styled as CTA using .setCta()
+		const buttonSetting = new Setting(containerEl)
+			.setName("Actions")
+			.setDesc("Apply or reset the settings.");
+		buttonSetting.addButton((btn) => {
+			btn.setButtonText("Apply changes")
+				.setCta()
+				.onClick(async () => {
+					await this.plugin.saveSettings();
+					this.plugin.updateActiveLeaf({
+						title: this.plugin.settings.folderName,
+						icon: this.plugin.settings.iconSelection
+					});
+				});
+		});
+		buttonSetting.addButton((btn) => {
+			btn.setButtonText("Reset to defaults")
+				.setCta()
+				.onClick(async () => {
+					Object.assign(this.plugin.settings, DEFAULT_SETTINGS);
+					await this.plugin.saveSettings();
+					this.plugin.refreshHeatmapView();
+					this.display();
+				});
+		});
+
+		// Divider and Colour Settings Header
+		containerEl.createEl("h2", { text: "Colour Settings" });
 
 		// Colourways input section
 		new Setting(containerEl)
 			.setName("Colourways Presets JSON")
-			.setDesc("Define the colourways (each as an object with a 'name' and a 'colours' array).")
-			.addTextArea(textArea =>
+			.setDesc("Define the colourways (each as an object with a 'name' and 'colours' array). Best edited in a code editor.")
+			.addTextArea((textArea) => {
 				textArea
 					.setPlaceholder('e.g. [{"name": "Warm", "colours": ["#FF0000", "#FFA500", ...]}]')
 					.setValue(this.plugin.settings.colourwaysPresetJSON)
@@ -123,24 +178,25 @@ class HeatmapSettingsTab extends PluginSettingTab {
 						// Refresh the settings UI to update the dropdown options
 						this.display();
 						this.plugin.refreshHeatmapView();
-					})
-			);
+					});
+				textArea.inputEl.style.height = "150px";
+				textArea.inputEl.style.width = "450px";
+			});
 
 		let presetOptions = {};
 		try {
 			const presets = JSON.parse(this.plugin.settings.colourwaysPresetJSON);
-			presets.forEach(preset => {
-				if (preset.name)
-					presetOptions[preset.name] = preset.name;
+			presets.forEach((preset) => {
+				if (preset.name) presetOptions[preset.name] = preset.name;
 			});
 		} catch (error) {
-			presetOptions["Warm"] = "Warm";
+			presetOptions["Natural"] = "Natural";
 		}
 
 		new Setting(containerEl)
 			.setName("Select Colourway")
 			.setDesc("Choose a colourway preset.")
-			.addDropdown(drop =>
+			.addDropdown((drop) =>
 				drop
 					.addOptions(presetOptions)
 					.setValue(this.plugin.settings.selectedColourway)
@@ -150,33 +206,6 @@ class HeatmapSettingsTab extends PluginSettingTab {
 						this.plugin.refreshHeatmapView();
 					})
 			);
-
-	new Setting(containerEl)
-		.setName("Apply changes")
-		.setDesc("Apply the changes to the active leaf title and icon.")
-		.addButton((btn) => {
-			btn.setButtonText("Apply");
-			btn.onClick(async () => {
-				await this.plugin.saveSettings();
-				this.plugin.updateActiveLeaf({
-					title: this.plugin.settings.folderName,
-					icon: this.plugin.settings.iconSelection
-				});
-			});
-		});
-
-	new Setting(containerEl)
-		.setName("Reset to defaults")
-		.setDesc("Reset the plugin's settings to the factory defaults.")
-		.addButton((btn) => {
-			btn.setButtonText("Reset");
-			btn.onClick(async () => {
-				Object.assign(this.plugin.settings, DEFAULT_SETTINGS);
-				await this.plugin.saveSettings();
-				this.plugin.refreshHeatmapView();
-				this.display();
-			});
-		});
 	}
 }
 
@@ -457,12 +486,16 @@ class HeatmapView extends ItemView {
 			let presets = JSON.parse(this.plugin.settings.colourwaysPresetJSON);
 			let preset = presets.find(p => p.name === this.plugin.settings.selectedColourway);
 			if (preset && Array.isArray(preset.colours)) {
-				presetColours = preset.colours;
+				// Validate that each colour is a valid hex code (short or full form)
+				presetColours = preset.colours.filter(c => 
+					typeof c === "string" && /^#(?:[0-9a-fA-F]{3}){1,2}$/.test(c)
+				);
 			}
 		} catch (err) {
-			// fallback to default colours
+			console.error("Error parsing colourwaysPresetJSON:", err);
 		}
 		if (!presetColours.length) {
+			// Fallback to default colours if no valid preset colours are found
 			presetColours = ["#FF0000", "#FFA500", "#FFFF00", "#FF1493", "#FF00FF", "#FF4500"];
 		}
 		const index = Math.min(count - 1, presetColours.length - 1);
@@ -473,7 +506,7 @@ class HeatmapView extends ItemView {
 /** ========== MAIN PLUGIN CLASS ========== */
 module.exports = class HeatmapPlugin extends Plugin {
 	async onload() {
-		console.log("Loading Dynamic Heatmap Plugin (With Default Padding)");
+		console.log("Loading Heatmap Plugin");
 
 		await this.loadSettings();
 

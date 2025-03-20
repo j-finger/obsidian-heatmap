@@ -1,13 +1,5 @@
-/*
-  Use Obsidian's default .view-content padding by
-  simply allowing the standard layout, or by
-  adding minimal overrides if needed.
-*/
-
 /* Class added to the view container to restore typical Obsidian spacing */
 .heatmap-default-padding {
-  /* Typically, Obsidian applies ~16px of padding to .view-content, so
-     you can either rely on that or set your own here if you want. */
   margin: 0;
   padding: 0;
   /* We'll let Obsidian handle the default padding in the .view-content. */
