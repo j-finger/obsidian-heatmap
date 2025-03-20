@@ -343,38 +343,39 @@ class HeatmapView extends ItemView {
 
 	showDayPopup(evt, dateKey) {
 		document.querySelectorAll(".day-popup").forEach(el => el.remove());
-
+	
 		const filesForDate = this.dailyFiles?.[dateKey] || [];
 		if (!filesForDate.length) return;
-
+	
 		const popup = createDiv({ cls: "day-popup" });
 		popup.style.position = "absolute";
 		popup.style.left = evt.pageX + "px";
 		popup.style.top = evt.pageY + "px";
 		popup.style.zIndex = 9999;
-
+	
 		filesForDate.forEach(path => {
-			const linkEl = popup.createEl("a", { text: path });
+			// Extract only the filename from the full path
+			const filename = path.split("/").pop();
+			const linkEl = popup.createEl("a", { text: filename });
 			linkEl.href = "#";
 			linkEl.style.display = "block";
-			// linkEl.style.color = "#fff";
 			linkEl.addEventListener("click", (e) => {
 				e.preventDefault();
 				this.openFile(path);
 				popup.remove();
 			});
 		});
-
+	
 		document.body.appendChild(popup);
-
-		 // Adjust if the popup goes off-screen
+	
+		// Adjust if the popup goes off-screen
 		window.requestAnimationFrame(() => {
 			const rect = popup.getBoundingClientRect();
 			if (rect.bottom > window.innerHeight) {
 				popup.style.top = (window.innerHeight - rect.height - 10) + "px";
 			}
 		});
-
+	
 		const removePopup = (e) => {
 			if (!popup.contains(e.target)) {
 				popup.remove();
