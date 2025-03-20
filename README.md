@@ -25,6 +25,32 @@ There were no 'heatmap' plugins that I liked so I made my own. Existing solution
 	- JSON hex code array
 	- Then select a desired colorway preset from a dropdown.
 
+### JSON Palette Format
+
+Each palette is defined as a JSON object with a "name" and a "colours" array containing valid hex codes. For example:
+
+```json
+[
+  {
+    "name": "Warm",
+    "colours": ["#FF0000", "#FFA500", "#FFFF00"]
+  }
+]
+```
+
+## Installation & Setup
+
+1. **Install:**  
+   - Download or clone the repository.
+   - Place the plugin folder (`obsidian-heatmap/`) in your vault’s `.obsidian/plugins/` directory.
+   - Enable the plugin from Obsidian’s Community Plugins settings.
+
+2. **Configure:**  
+   - Open the plugin settings to set your Target Folder, Leaf Name, and Icon.
+   - Edit the JSON for Colourways or choose a preset.
+   - The heatmap will appear automatically in the left sidebar.
+
+
 ## Plugin Roadmap
 
 There is not going to be any scope blowout for this plugin, but there are a few QoL features I would like to implement to make this plugin feel polished and complete. 
