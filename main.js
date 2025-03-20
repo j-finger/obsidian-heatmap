@@ -19,7 +19,7 @@ const DEFAULT_SETTINGS = {
 	iconSelection: "activity"
 };
 
-class MinimalHeatmapSettingsTab extends PluginSettingTab {
+class HeatmapSettingsTab extends PluginSettingTab {
 	constructor(app, plugin) {
 		super(app, plugin);
 		this.plugin = plugin;
@@ -28,7 +28,7 @@ class MinimalHeatmapSettingsTab extends PluginSettingTab {
 	display() {
 		const { containerEl } = this;
 		containerEl.empty();
-		containerEl.createEl("h2", { text: "Minimal Dynamic Heatmap Settings" });
+		containerEl.createEl("h2", { text: "Dynamic Heatmap Settings" });
 
 		// Folder selection section
 		new Setting(containerEl)
@@ -136,7 +136,7 @@ class MinimalHeatmapSettingsTab extends PluginSettingTab {
 /** ========== HEATMAP VIEW ========== */
 const HEATMAP_VIEW_TYPE = "heatmap-view";
 
-class MinimalHeatmapView extends ItemView {
+class HeatmapView extends ItemView {
 	constructor(leaf, plugin) {
 		super(leaf);
 		this.plugin = plugin;
@@ -152,7 +152,7 @@ class MinimalHeatmapView extends ItemView {
 
 	getDisplayText() {
 		// Use custom folderName if provided
-		return this.plugin.settings.folderName || "Minimal Heatmap";
+		return this.plugin.settings.folderName || "Heatmap";
 	}
 
 	// NEW: getIcon method so the tab icon updates with settings
@@ -212,10 +212,9 @@ class MinimalHeatmapView extends ItemView {
 		if (!this.gridEl || !this.dailyCounts) return;
 		this.gridEl.empty();
 
-		// Each column is ~16px (12px cell + ~4px gap).
 		const COLUMN_WIDTH = 16;
 		let numWeeks = Math.floor(containerWidth / COLUMN_WIDTH);
-		if (numWeeks < 1) numWeeks = 1; // at least 1 column
+		if (numWeeks < 1) numWeeks = 1;
 
 		const today = moment().startOf("day");
 		const startDate = today.clone().subtract(numWeeks - 1, "weeks").startOf("week");
@@ -224,6 +223,9 @@ class MinimalHeatmapView extends ItemView {
 			const weekDiv = this.gridEl.createDiv({ cls: "heatmap-week" });
 			for (let d = 0; d < 7; d++) {
 				const currentDate = startDate.clone().add(w, "weeks").add(d, "days");
+				// Skip future days
+				if (currentDate.isAfter(today)) continue;
+
 				const dateKey = currentDate.format("YYYY-MM-DD");
 				const count = this.dailyCounts[dateKey] || 0;
 
@@ -280,20 +282,20 @@ class MinimalHeatmapView extends ItemView {
 }
 
 /** ========== MAIN PLUGIN CLASS ========== */
-module.exports = class MinimalHeatmapPlugin extends Plugin {
+module.exports = class HeatmapPlugin extends Plugin {
 	async onload() {
-		console.log("Loading Minimal Dynamic Heatmap Plugin (With Default Padding)");
+		console.log("Loading Dynamic Heatmap Plugin (With Default Padding)");
 
 		await this.loadSettings();
 
 		// Register the custom view
 		this.registerView(
 			HEATMAP_VIEW_TYPE,
-			(leaf) => new MinimalHeatmapView(leaf, this)
+			(leaf) => new HeatmapView(leaf, this)
 		);
 
 		// Add settings
-		this.addSettingTab(new MinimalHeatmapSettingsTab(this.app, this));
+		this.addSettingTab(new HeatmapSettingsTab(this.app, this));
 
 			// Register a command to reopen the heatmap pane if closed
 		this.addCommand({
