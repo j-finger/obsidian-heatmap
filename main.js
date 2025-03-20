@@ -4,7 +4,8 @@ const {
 	PluginSettingTab,
 	Setting,
 	ItemView,
-	moment
+	moment,
+	setIcon   // NEW: import setIcon utility
 } = require("obsidian");
 
 /** ========== SETTINGS ========== */
@@ -12,7 +13,10 @@ const DEFAULT_SETTINGS = {
 	targetFolder: "", // If blank, track entire vault
 	// new settings for colourways
 	colourwaysPresetJSON: '[{"name":"Warm","colours":["#FF0000", "#FFA500", "#FFFF00", "#FF1493", "#FF00FF", "#FF4500"]},{"name":"Cool","colours":["#0000FF", "#00FFFF", "#000080", "#800080"]}]',
-	selectedColourway: "Warm"
+	selectedColourway: "Warm",
+	// new settings for folder name and icon selection
+	folderName: "Heatmap",
+	iconSelection: "activity"
 };
 
 class MinimalHeatmapSettingsTab extends PluginSettingTab {
@@ -36,6 +40,36 @@ class MinimalHeatmapSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.targetFolder)
 					.onChange(async (value) => {
 						this.plugin.settings.targetFolder = value.trim();
+						await this.plugin.saveSettings();
+						this.plugin.refreshHeatmapView();
+					})
+			);
+
+			// New: Folder Name input for title and tooltip use
+		new Setting(containerEl)
+			.setName("Folder Name")
+			.setDesc("Custom name used for the heatmap leaf title, panel tooltip, etc.")
+			.addText(text =>
+				text
+					.setPlaceholder("Heatmap")
+					.setValue(this.plugin.settings.folderName)
+					.onChange(async (value) => {
+						this.plugin.settings.folderName = value.trim();
+						await this.plugin.saveSettings();
+						this.plugin.refreshHeatmapView();
+					})
+			);
+
+		// New: Icon Selection input
+		new Setting(containerEl)
+			.setName("Icon Selection")
+			.setDesc("Type the exact icon name from the Lucide icons Obsidian uses.")
+			.addText(text =>
+				text
+					.setPlaceholder("activity")
+					.setValue(this.plugin.settings.iconSelection)
+					.onChange(async (value) => {
+						this.plugin.settings.iconSelection = value.trim();
 						await this.plugin.saveSettings();
 						this.plugin.refreshHeatmapView();
 					})
@@ -103,12 +137,21 @@ class MinimalHeatmapView extends ItemView {
 	}
 
 	getDisplayText() {
-		return "Minimal Heatmap";
+		// Use custom folderName if provided
+		return this.plugin.settings.folderName || "Minimal Heatmap";
+	}
+
+	// NEW: getIcon method so the tab icon updates with settings
+	getIcon() {
+		return this.plugin.settings.iconSelection || "activity";
 	}
 
 	async onOpen() {
 		this.containerEl.empty();
-
+		// Update the leaf header icon using the settings
+		if (this.leaf && this.leaf.tabHeaderInnerEl) {
+			setIcon(this.leaf.tabHeaderInnerEl, this.plugin.settings.iconSelection || "activity");
+		}
 		// Add a class to style the container with Obsidian's default padding
 		this.containerEl.classList.add("heatmap-default-padding");
 
@@ -237,6 +280,15 @@ module.exports = class MinimalHeatmapPlugin extends Plugin {
 
 		// Add settings
 		this.addSettingTab(new MinimalHeatmapSettingsTab(this.app, this));
+
+			// Register a command to reopen the heatmap pane if closed
+		this.addCommand({
+			id: "reopen-heatmap-pane",
+			name: "Reopen Heatmap Pane",
+			callback: () => {
+				this.activateView();
+			}
+		});
 
 		// Automatically open in the left sidebar
 		this.activateView();
