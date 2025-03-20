@@ -6,6 +6,7 @@ const {
 	ItemView,
 	moment,
 	setIcon,
+	normalisePath,
 	TFolder   // NEW: import TFolder for target folder validation
 } = require("obsidian");
 
@@ -75,9 +76,11 @@ class HeatmapSettingsTab extends PluginSettingTab {
 					.setPlaceholder("e.g. FolderA/Subfolder")
 					.setValue(this.plugin.settings.targetFolder)
 					.onChange(async (value) => {
-						this.plugin.settings.targetFolder = value.trim();
+						// Remove extraneous spaces and normalize path
+						let normalizedFolder = normalisePath(value.trim());
+						this.plugin.settings.targetFolder = normalizedFolder;
 						// Validate folder – change border color accordingly
-						if (!this.isValidFolder(this.plugin.settings.targetFolder)) {
+						if (!this.isValidFolder(normalizedFolder)) {
 							text.inputEl.style.borderColor = "red";
 						} else {
 							text.inputEl.style.borderColor = "";
@@ -85,8 +88,9 @@ class HeatmapSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 						this.plugin.refreshHeatmapView();
 					});
-				// Initial validation
-				if (!this.isValidFolder(this.plugin.settings.targetFolder)) {
+				// Initial validation using normalized value
+				let normalizedFolder = normalisePath(this.plugin.settings.targetFolder);
+				if (!this.isValidFolder(normalizedFolder)) {
 					text.inputEl.style.borderColor = "red";
 				}
 			});
@@ -130,8 +134,14 @@ class HeatmapSettingsTab extends PluginSettingTab {
 					text.inputEl.style.borderColor = "red";
 				}
 			});
-		// Override description to include HTML link
-		iconSetting.descEl.innerHTML = 'Type the exact <a href="https://lucide.dev/icons/" target="_blank" rel="noopener">Lucide icon</a> name';
+		// Override description to include HTML link without innerHTML
+		iconSetting.descEl.empty();
+		iconSetting.descEl.createEl("span", { text: "Type the exact " });
+		const link = iconSetting.descEl.createEl("a", { text: "Lucide icon" });
+		link.href = "https://lucide.dev/icons/";
+		link.target = "_blank";
+		link.rel = "noopener";
+		iconSetting.descEl.createEl("span", { text: " name" });
 
 		// Apply and Reset buttons on the same line – styled as CTA using .setCta()
 		const buttonSetting = new Setting(containerEl)
@@ -160,7 +170,7 @@ class HeatmapSettingsTab extends PluginSettingTab {
 		});
 
 		// Divider and Colour Settings Header
-		containerEl.createEl("h2", { text: "Colour Settings" });
+		containerEl.createEl("h2", { text: "Colour" });
 
 		// Colourways input section
 		new Setting(containerEl)
@@ -505,7 +515,7 @@ class HeatmapView extends ItemView {
 /** ========== MAIN PLUGIN CLASS ========== */
 module.exports = class HeatmapPlugin extends Plugin {
 	async onload() {
-		console.log("Loading Heatmap Plugin");
+// Removed unnecessary 		console logging per guidelines
 
 		await this.loadSettings();
 
@@ -542,7 +552,7 @@ module.exports = class HeatmapPlugin extends Plugin {
 	}
 
 	onunload() {
-		this.app.workspace.detachLeavesOfType(HEATMAP_VIEW_TYPE);
+		// Per guidelines, do not detach leaves on unload.
 	}
 
 	async activateView() {
@@ -563,8 +573,9 @@ module.exports = class HeatmapPlugin extends Plugin {
 	}
 
 	updateActiveLeaf(updates) {
-		const leaf = this.app.workspace.activeLeaf;
-		if (leaf) {
+		const leaves = this.app.workspace.getLeavesOfType(HEATMAP_VIEW_TYPE);
+		if (leaves.length) {
+			const leaf = leaves[0]; // use first available heatmap leaf
 			const currentState = leaf.getViewState();
 			leaf.setViewState({
 				...currentState,
