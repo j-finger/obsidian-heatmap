@@ -116,6 +116,20 @@ class MinimalHeatmapSettingsTab extends PluginSettingTab {
 						this.plugin.refreshHeatmapView();
 					})
 			);
+
+	new Setting(containerEl)
+		.setName("Apply changes")
+		.setDesc("Apply the changes to the active leaf title and icon.")
+		.addButton((btn) => {
+			btn.setButtonText("Apply");
+			btn.onClick(async () => {
+				await this.plugin.saveSettings();
+				this.plugin.updateActiveLeaf({
+					title: this.plugin.settings.folderName,
+					icon: this.plugin.settings.iconSelection
+				});
+			});
+		});
 	}
 }
 
@@ -312,6 +326,20 @@ module.exports = class MinimalHeatmapPlugin extends Plugin {
 		const leaves = this.app.workspace.getLeavesOfType(HEATMAP_VIEW_TYPE);
 		if (leaves.length) {
 			leaves[0].view.onOpen();
+		}
+	}
+
+	updateActiveLeaf(updates) {
+		const leaf = this.app.workspace.activeLeaf;
+		if (leaf) {
+			const currentState = leaf.getViewState();
+			leaf.setViewState({
+				...currentState,
+				state: {
+					...currentState.state,
+					...updates
+				}
+			});
 		}
 	}
 
