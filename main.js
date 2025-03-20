@@ -10,6 +10,9 @@ const {
 /** ========== SETTINGS ========== */
 const DEFAULT_SETTINGS = {
 	targetFolder: "", // If blank, track entire vault
+	// new settings for colourways
+	colourwaysPresetJSON: '[{"name":"Warm","colours":["#FF0000", "#FFA500", "#FFFF00", "#FF1493", "#FF00FF", "#FF4500"]},{"name":"Cool","colours":["#0000FF", "#00FFFF", "#000080", "#800080"]}]',
+	selectedColourway: "Warm"
 };
 
 class MinimalHeatmapSettingsTab extends PluginSettingTab {
@@ -23,6 +26,7 @@ class MinimalHeatmapSettingsTab extends PluginSettingTab {
 		containerEl.empty();
 		containerEl.createEl("h2", { text: "Minimal Dynamic Heatmap Settings" });
 
+		// Folder selection section
 		new Setting(containerEl)
 			.setName("Target Folder")
 			.setDesc("Track only files in this folder (and subfolders). Leave blank for entire vault.")
@@ -32,6 +36,48 @@ class MinimalHeatmapSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.targetFolder)
 					.onChange(async (value) => {
 						this.plugin.settings.targetFolder = value.trim();
+						await this.plugin.saveSettings();
+						this.plugin.refreshHeatmapView();
+					})
+			);
+
+		// Colourways input section
+		new Setting(containerEl)
+			.setName("Colourways Presets JSON")
+			.setDesc("Define the colourways (each as an object with a 'name' and a 'colours' array).")
+			.addTextArea(textArea =>
+				textArea
+					.setPlaceholder('e.g. [{"name": "Warm", "colours": ["#FF0000", "#FFA500", ...]}]')
+					.setValue(this.plugin.settings.colourwaysPresetJSON)
+					.onChange(async (value) => {
+						this.plugin.settings.colourwaysPresetJSON = value.trim();
+						await this.plugin.saveSettings();
+						// Refresh the settings UI to update the dropdown options
+						this.display();
+						this.plugin.refreshHeatmapView();
+					})
+			);
+
+		let presetOptions = {};
+		try {
+			const presets = JSON.parse(this.plugin.settings.colourwaysPresetJSON);
+			presets.forEach(preset => {
+				if (preset.name)
+					presetOptions[preset.name] = preset.name;
+			});
+		} catch (error) {
+			presetOptions["Warm"] = "Warm";
+		}
+
+		new Setting(containerEl)
+			.setName("Select Colourway")
+			.setDesc("Choose a colourway preset.")
+			.addDropdown(drop =>
+				drop
+					.addOptions(presetOptions)
+					.setValue(this.plugin.settings.selectedColourway)
+					.onChange(async (value) => {
+						this.plugin.settings.selectedColourway = value;
 						await this.plugin.saveSettings();
 						this.plugin.refreshHeatmapView();
 					})
@@ -158,10 +204,21 @@ class MinimalHeatmapView extends ItemView {
 
 	getColor(count) {
 		if (count === 0) return "#ebedf0";
-		if (count < 3) return "#c6e48b";
-		if (count < 6) return "#7bc96f";
-		if (count < 10) return "#239a3b";
-		return "#196127";
+		let presetColours = [];
+		try {
+			let presets = JSON.parse(this.plugin.settings.colourwaysPresetJSON);
+			let preset = presets.find(p => p.name === this.plugin.settings.selectedColourway);
+			if (preset && Array.isArray(preset.colours)) {
+				presetColours = preset.colours;
+			}
+		} catch (err) {
+			// fallback to default colours
+		}
+		if (!presetColours.length) {
+			presetColours = ["#FF0000", "#FFA500", "#FFFF00", "#FF1493", "#FF00FF", "#FF4500"];
+		}
+		const index = Math.min(count - 1, presetColours.length - 1);
+		return presetColours[index];
 	}
 }
 
