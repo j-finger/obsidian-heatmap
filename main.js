@@ -304,6 +304,16 @@ module.exports = class MinimalHeatmapPlugin extends Plugin {
 			}
 		});
 
+		// Refresh the heatmap view every hour		
+		this.lastDateChecked = new Date().toDateString();
+    	this.registerInterval(window.setInterval(() => {
+			const currentDate = new Date().toDateString();
+			if (currentDate !== this.lastDateChecked) {
+				this.lastDateChecked = currentDate;
+				this.refreshHeatmapView();
+			}
+		}, 1000 * 60 * 60)); // checks hourly
+
 		// Automatically open in the left sidebar
 		this.activateView();
 	}
