@@ -2,7 +2,7 @@
 
 A simple sidebar heatmap for Obsidian.
 
-![obsidian-heatmap.gif](file:///obsidian-heatmap.gif)
+![Heatmap Demo](./obsidian-heatmap.gif)
 
 There were no 'heatmap' plugins that I liked so I made my own. Existing solutions were cumbersome and/or did not integrate well with the Obsidian UI.
 
