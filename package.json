@@ -1,7 +1,7 @@
 {
-    "name": "obsidian-heatmap",
+    "name": "heatmap",
     "version": "1.0.0",
-    "description": "Sidebar heatmap for Obsidian",
+    "description": "A simple heatmap for the sidebar",
     "main": "main.js",
     "scripts": {
     },

@@ -1,9 +1,9 @@
 {
-	"id": "obsidian-heatmap",
+	"id": "heatmap",
 	"name": "Heatmap",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Sidebar heatmap for Obsidian",
+	"description": "A simple heatmap for the sidebar",
 	"author": "j-finger",
 	"authorUrl": "https://github.com/j-finger",
 	"fundingUrl": "https://github.com/j-finger",
