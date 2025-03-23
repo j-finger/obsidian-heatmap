@@ -70,6 +70,8 @@ class HeatmapSettingsTab extends PluginSettingTab {
 	display() {
 		const { containerEl } = this;
 		
+		containerEl.empty();
+
 		/** -- Target Folder Setting -- */
 		new Setting(containerEl)
 			.setName("Target folder")
@@ -182,7 +184,7 @@ class HeatmapSettingsTab extends PluginSettingTab {
 						this.display();
 						this.plugin.refreshHeatmapView();
 					});
-				textArea.inputEl.classList.add("input-text-area");
+				textArea.inputEl.classList.add("settings-input-text-area");
 			});
 
 		let presetOptions = {};
@@ -306,6 +308,7 @@ class HeatmapView extends ItemView {
 	}
 
 	async gatherFileActivity() {
+		// cDate and mDate store creation and modification days. dailyCounts tallies file activity per date.
 		this.dailyFiles = {};
 		const dailyCounts = {};
 		const files = this.app.vault.getFiles();
@@ -329,6 +332,7 @@ class HeatmapView extends ItemView {
 	}
 
 	showDayPopup(evt, dateKey) {
+		// Creates and positions a small popup of file names for dateKey, and dismisses it if clicked outside.
 		document.querySelectorAll(".day-popup").forEach(el => el.remove());
 	
 		const filesForDate = this.dailyFiles?.[dateKey] || [];
@@ -376,86 +380,8 @@ class HeatmapView extends ItemView {
 		}
 	}
 
-	onClose() {
-		if (this.resizeObserver) {
-			this.resizeObserver.disconnect();
-		}
-	}
-
-	setupResizeObserver() {
-		if (!this.heatmapContainer) return;
-		this.resizeObserver = new ResizeObserver((entries) => {
-			for (let entry of entries) {
-				const w = entry.contentRect.width;
-				if (Math.abs(w - this.lastWidth) >= 2) {
-					this.buildHeatmap(w);
-					this.lastWidth = w;
-				}
-			}
-		});
-		this.resizeObserver.observe(this.heatmapContainer);
-		const initialWidth = this.heatmapContainer.offsetWidth;
-		this.buildHeatmap(initialWidth);
-		this.lastWidth = initialWidth;
-	}
-
-	buildHeatmap(containerWidth) {
-		if (!this.gridEl || !this.dailyCounts) return;
-		this.gridEl.empty();
-
-		const COLUMN_WIDTH = 16;
-		let numWeeks = Math.floor(containerWidth / COLUMN_WIDTH);
-		if (numWeeks < 1) numWeeks = 1;
-
-		const today = moment().startOf("day");
-		const startDate = today.clone().subtract(numWeeks - 1, "weeks").startOf("week");
-
-		for (let w = 0; w < numWeeks; w++) {
-			const weekDiv = this.gridEl.createDiv({ cls: "heatmap-week" });
-			for (let d = 0; d < 7; d++) {
-				const currentDate = startDate.clone().add(w, "weeks").add(d, "days");
-				if (currentDate.isAfter(today)) continue;
-
-				const dateKey = currentDate.format("YYYY-MM-DD");
-				const count = this.dailyCounts[dateKey] || 0;
-
-				const dayCell = weekDiv.createDiv({ cls: "heatmap-day" });
-				dayCell.setAttr("data-date", dateKey);
-				dayCell.setAttr("data-count", count);
-				dayCell.setAttr("title", `${dateKey}: ${count} changes`);
-				dayCell.style.backgroundColor = this.getColor(count);
-
-				dayCell.addEventListener("click", (evt) => {
-					this.showDayPopup(evt, dateKey);
-				});
-			}
-		}
-	}
-
-	async gatherFileActivity() {
-		this.dailyFiles = {};
-		const dailyCounts = {};
-		const files = this.app.vault.getFiles();
-		const folderPath = this.plugin.settings.trackedFolderPath;
-
-		for (const file of files) {
-			if (!this.isInTargetFolder(file, folderPath)) continue;
-
-			const cDate = moment(file.stat.ctime).startOf("day").format("YYYY-MM-DD");
-			const mDate = moment(file.stat.mtime).startOf("day").format("YYYY-MM-DD");
-
-			dailyCounts[cDate] = (dailyCounts[cDate] || 0) + 1;
-			dailyCounts[mDate] = (dailyCounts[mDate] || 0) + 1;
-
-			this.dailyFiles[cDate] = this.dailyFiles[cDate] || [];
-			this.dailyFiles[mDate] = this.dailyFiles[mDate] || [];
-			this.dailyFiles[cDate].push(file.path);
-			this.dailyFiles[mDate].push(file.path);
-		}
-		return dailyCounts;
-	}
-
 	isInTargetFolder(file, folderPath) {
+		// Checks whether folderPath is empty or if file path starts with folderPath (case-insensitive).
 		if (!folderPath) return true;
 		return file.path.toLowerCase().startsWith(folderPath.toLowerCase() + "/");
 	}
