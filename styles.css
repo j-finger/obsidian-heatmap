@@ -1,15 +1,14 @@
-/* Class added to the view container to restore typical Obsidian spacing */
+/* Restore typical Obsidian spacing */
 .heatmap-default-padding {
   margin: 0;
   padding: 0;
-  /* We'll let Obsidian handle the default padding in the .view-content. */
+  /* Let Obsidian handle the default padding in the .view-content. */
 }
 
-/* The heatmap container, now sized to fill the content area minus Obsidian's padding. */
+/* Fill the content area minus Obsidian's padding */
 .heatmap-container {
   width: 100%;
   height: 100%;
-  /* Keep a minimal or no overflow. Let the dynamic columns handle it. */
   margin: 0 auto;
   padding: 0 16px;
   overflow: hidden;
@@ -18,20 +17,20 @@
   justify-content: center;
 }
 
-/* The grid is a row of columns (weeks), with a small gap. */
+/* Row of columns (weeks) with a small gap */
 .heatmap-grid {
   display: flex;
   gap: 4px;
 }
 
-/* Each column is 7 days stacked vertically. */
+/* Each column is 7 days stacked vertically */
 .heatmap-week {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-/* Each day is a 12x12 cell with a slight hover effect. */
+/* Each day is a 12x12 cell with a slight hover effect */
 .heatmap-day {
   width: 12px;
   height: 12px;
@@ -45,6 +44,7 @@
   z-index: 2;
 }
 
+/* Display file details on a specific day */
 .day-popup {
   position: absolute;
   z-index: 9999;
@@ -53,4 +53,15 @@
   background-color: var(--background-primary);
   border-radius: 8px;
   border: 1px solid var(--background-modifier-border);
+}
+
+/* Style for invalid input fields */
+.invalid-input {
+  border-color: red !important;
+}
+
+/* Style for the colourways text area */
+.input-text-area {
+  height: 150px;
+  width: 450px;
 }

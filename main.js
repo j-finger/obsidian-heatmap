@@ -7,15 +7,21 @@ const {
 	moment,
 	setIcon,
 	normalizePath,
-	TFolder   // NEW: import TFolder for target folder validation
+	TFolder 
 } = require("obsidian");
+
+/** ========== GLOBAL CONSTANTS ========== */
+
+const HEATMAP_VIEW_TYPE = "heatmap-view";
+const DEFAULT_HEATMAP_LEAF_ICON = "activity";
+const DEFAULT_HEATMAP_LEAF_TITLE = "Vault Heatmap";
+const REFRESH_INTERVAL_MS = 1000 * 60 * 60;
 
 /** ========== SETTINGS ========== */
 
 const DEFAULT_SETTINGS = {
-    targetFolder: "",
-    // Put your default colourways here as a string
-    colourwaysPresetJSON: JSON.stringify([
+    trackedFolderPath: "",
+    colourPresetsJSON: JSON.stringify([
         {
             "name": "Warm 1",
             "colours": ["#ffc000", "#fda456", "#f7642e", "#ff4948"]
@@ -42,8 +48,8 @@ const DEFAULT_SETTINGS = {
         }
     ]),
     selectedColourway: "Natural",
-    folderName: "Vault Heatmap",
-    iconSelection: "activity"
+    heatmapLeafTitle: "Vault Heatmap",
+    heatmapLeafIcon: "activity"
 };
 
 class HeatmapSettingsTab extends PluginSettingTab {
@@ -51,90 +57,81 @@ class HeatmapSettingsTab extends PluginSettingTab {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
-
-	// Helper functions for basic validations
 	isValidFolder(folderPath) {
-		if (!folderPath.trim()) return true; // blank is allowed (entire vault)
+		if (!folderPath.trim()) return true;
 		const file = this.app.vault.getAbstractFileByPath(folderPath.trim());
 		return file && file instanceof TFolder;
 	}
 
 	isValidIcon(iconName) {
-		// Minimal check: non-empty string
 		return iconName.trim().length > 0;
 	}
 
 	display() {
 		const { containerEl } = this;
-
-		// Target Folder setting with validation
+		
+		/** -- Target Folder Setting -- */
 		new Setting(containerEl)
-			.setName("Target Folder")
+			.setName("Target folder")
 			.setDesc("Track only files in this folder (and subfolders). Leave blank for entire vault.")
 			.addText((text) => {
 				text
-					.setPlaceholder("e.g. FolderA/Subfolder")
-					.setValue(this.plugin.settings.targetFolder)
+					.setPlaceholder("e.g. folderA/Subfolder")
+					.setValue(this.plugin.settings.trackedFolderPath)
 					.onChange(async (value) => {
-						// Remove extraneous spaces and normalize path
 						let normalizedFolder = normalizePath(value.trim());
-						this.plugin.settings.targetFolder = normalizedFolder;
-						// Validate folder – change border color accordingly
+						this.plugin.settings.trackedFolderPath = normalizedFolder;
 						if (!this.isValidFolder(normalizedFolder)) {
-							text.inputEl.style.borderColor = "red";
+							text.inputEl.classList.add("invalid-input");
 						} else {
-							text.inputEl.style.borderColor = "";
+							text.inputEl.classList.remove("invalid-input");
 						}
 						await this.plugin.saveSettings();
 						this.plugin.refreshHeatmapView();
 					});
-				// Initial validation using normalized value
-				let normalizedFolder = normalizePath(this.plugin.settings.targetFolder);
+				let normalizedFolder = normalizePath(this.plugin.settings.trackedFolderPath);
 				if (!this.isValidFolder(normalizedFolder)) {
-					text.inputEl.style.borderColor = "red";
+					text.inputEl.classList.add("invalid-input");
 				}
-			});
-
-		// Folder Name setting (no validation needed)
+				});
+		
+		/** -- Leaf Name Setting -- */
 		new Setting(containerEl)
-			.setName("Leaf Name")
+			.setName("Leaf name")
 			.setDesc("Custom name used for the heatmap leaf title, panel tooltip, etc.")
 			.addText((text) =>
 				text
 					.setPlaceholder("Heatmap")
-					.setValue(this.plugin.settings.folderName)
+					.setValue(this.plugin.settings.heatmapLeafTitle)
 					.onChange(async (value) => {
-						this.plugin.settings.folderName = value.trim();
+						this.plugin.settings.heatmapLeafTitle = value.trim();
 						await this.plugin.saveSettings();
 						this.plugin.refreshHeatmapView();
 					})
-			);
-
-		// Icon Selection with simple validation check
+				);
+		
+		/** -- Leaf Icon Setting -- */
 		const iconSetting = new Setting(containerEl)
-			.setName("Leaf Icon")
-			.setDesc("Loading...") // temporary text; overridden below
+			.setName("Leaf icon")
+			.setDesc("Loading...")
 			.addText((text) => {
 				text
-					.setPlaceholder("activity")
-					.setValue(this.plugin.settings.iconSelection)
+					.setPlaceholder(DEFAULT_HEATMAP_LEAF_ICON)
+					.setValue(this.plugin.settings.heatmapLeafIcon)
 					.onChange(async (value) => {
-						this.plugin.settings.iconSelection = value.trim();
-						// Validate icon (for example, non-empty text)
-						if (!this.isValidIcon(this.plugin.settings.iconSelection)) {
-							text.inputEl.style.borderColor = "red";
+						this.plugin.settings.heatmapLeafIcon = value.trim();
+						if (!this.isValidIcon(this.plugin.settings.heatmapLeafIcon)) {
+							text.inputEl.classList.add("invalid-input");
 						} else {
-							text.inputEl.style.borderColor = "";
+							text.inputEl.classList.remove("invalid-input");
 						}
 						await this.plugin.saveSettings();
 						this.plugin.refreshHeatmapView();
 					});
-				// Initial validation check
-				if (!this.isValidIcon(this.plugin.settings.iconSelection)) {
-					text.inputEl.style.borderColor = "red";
+				if (!this.isValidIcon(this.plugin.settings.heatmapLeafIcon)) {
+					text.inputEl.classList.add("invalid-input");
 				}
 			});
-		// Override description to include HTML link without innerHTML
 		iconSetting.descEl.empty();
 		iconSetting.descEl.createEl("span", { text: "Type the exact " });
 		const link = iconSetting.descEl.createEl("a", { text: "Lucide icon" });
@@ -142,8 +139,8 @@ class HeatmapSettingsTab extends PluginSettingTab {
 		link.target = "_blank";
 		link.rel = "noopener";
 		iconSetting.descEl.createEl("span", { text: " name" });
-
-		// Apply and Reset buttons on the same line – styled as CTA using .setCta()
+		
+		/** -- Actions Setting -- */
 		const buttonSetting = new Setting(containerEl)
 			.setName("Actions")
 			.setDesc("Apply or reset the settings.");
@@ -153,8 +150,8 @@ class HeatmapSettingsTab extends PluginSettingTab {
 				.onClick(async () => {
 					await this.plugin.saveSettings();
 					this.plugin.updateActiveLeaf({
-						title: this.plugin.settings.folderName,
-						icon: this.plugin.settings.iconSelection
+						title: this.plugin.settings.heatmapLeafTitle,
+						icon: this.plugin.settings.heatmapLeafIcon
 					});
 				});
 		});
@@ -167,33 +164,30 @@ class HeatmapSettingsTab extends PluginSettingTab {
 					this.plugin.refreshHeatmapView();
 					this.display();
 				});
-		});
+			});
+		
+		/** -- Colour Settings Section -- */
+		new Setting(containerEl).setHeading("Colour");
 
-		// Divider and Colour Settings Header
-		containerEl.createEl("h2", { text: "Colour" });
-
-		// Colourways input section
 		new Setting(containerEl)
-			.setName("Colourways Presets JSON")
+			.setName("Colourways presets json")
 			.setDesc("Define the colourways (each as an object with a 'name' and 'colours' array). Best edited in a code editor.")
 			.addTextArea((textArea) => {
 				textArea
 					.setPlaceholder('e.g. [{"name": "Warm", "colours": ["#FF0000", "#FFA500", ...]}]')
-					.setValue(this.plugin.settings.colourwaysPresetJSON)
+					.setValue(this.plugin.settings.colourPresetsJSON)
 					.onChange(async (value) => {
-						this.plugin.settings.colourwaysPresetJSON = value.trim();
+						this.plugin.settings.colourPresetsJSON = value.trim();
 						await this.plugin.saveSettings();
-						// Refresh the settings UI to update the dropdown options
 						this.display();
 						this.plugin.refreshHeatmapView();
 					});
-				textArea.inputEl.style.height = "150px";
-				textArea.inputEl.style.width = "450px";
+				textArea.inputEl.classList.add("input-text-area");
 			});
 
 		let presetOptions = {};
 		try {
-			const presets = JSON.parse(this.plugin.settings.colourwaysPresetJSON);
+			const presets = JSON.parse(this.plugin.settings.colourPresetsJSON);
 			presets.forEach((preset) => {
 				if (preset.name) presetOptions[preset.name] = preset.name;
 			});
@@ -202,7 +196,7 @@ class HeatmapSettingsTab extends PluginSettingTab {
 		}
 
 		new Setting(containerEl)
-			.setName("Select Colourway")
+			.setName("Select colourway")
 			.setDesc("Choose a colourway preset.")
 			.addDropdown((drop) =>
 				drop
@@ -218,7 +212,7 @@ class HeatmapSettingsTab extends PluginSettingTab {
 }
 
 /** ========== HEATMAP VIEW ========== */
-const HEATMAP_VIEW_TYPE = "heatmap-view";
+// const HEATMAP_VIEW_TYPE = "heatmap-view";
 
 class HeatmapView extends ItemView {
 	constructor(leaf, plugin) {
@@ -235,34 +229,22 @@ class HeatmapView extends ItemView {
 	}
 
 	getDisplayText() {
-		// Use custom folderName if provided
-		return this.plugin.settings.folderName || "Heatmap";
+		return this.plugin.settings.heatmapLeafTitle || DEFAULT_HEATMAP_LEAF_TITLE;
 	}
-
-	// NEW: getIcon method so the tab icon updates with settings
 	getIcon() {
-		return this.plugin.settings.iconSelection || "activity";
+		return this.plugin.settings.heatmapLeafIcon || DEFAULT_HEATMAP_LEAF_ICON;
 	}
 
+	/** ========== VIEW INITIALIZATION ========== */
 	async onOpen() {
 		this.containerEl.empty();
-		// Update the leaf header icon using the settings
 		if (this.leaf && this.leaf.tabHeaderInnerEl) {
-			setIcon(this.leaf.tabHeaderInnerEl, this.plugin.settings.iconSelection || "activity");
+			setIcon(this.leaf.tabHeaderInnerEl, this.plugin.settings.heatmapLeafIcon || DEFAULT_HEATMAP_LEAF_ICON);
 		}
-		// Add a class to style the container with Obsidian's default padding
 		this.containerEl.classList.add("heatmap-default-padding");
-
-		// Create a child container for the heatmap
 		this.heatmapContainer = this.containerEl.createDiv({ cls: "heatmap-container" });
-
-		// Prepare the grid element
 		this.gridEl = this.heatmapContainer.createDiv({ cls: "heatmap-grid" });
-
-		// Gather file activity
 		this.dailyCounts = await this.gatherFileActivity();
-
-		// Observe size changes
 		this.setupResizeObserver();
 	}
 
@@ -277,7 +259,6 @@ class HeatmapView extends ItemView {
 		this.resizeObserver = new ResizeObserver((entries) => {
 			for (let entry of entries) {
 				const w = entry.contentRect.width;
-				// Only rebuild if width changes by >= 2px to avoid flicker
 				if (Math.abs(w - this.lastWidth) >= 2) {
 					this.buildHeatmap(w);
 					this.lastWidth = w;
@@ -285,13 +266,12 @@ class HeatmapView extends ItemView {
 			}
 		});
 		this.resizeObserver.observe(this.heatmapContainer);
-
-		// Initial build
 		const initialWidth = this.heatmapContainer.offsetWidth;
 		this.buildHeatmap(initialWidth);
 		this.lastWidth = initialWidth;
 	}
 
+	/** ========== HEATMAP GRID BUILDING ========== */
 	buildHeatmap(containerWidth) {
 		if (!this.gridEl || !this.dailyCounts) return;
 		this.gridEl.empty();
@@ -307,7 +287,6 @@ class HeatmapView extends ItemView {
 			const weekDiv = this.gridEl.createDiv({ cls: "heatmap-week" });
 			for (let d = 0; d < 7; d++) {
 				const currentDate = startDate.clone().add(w, "weeks").add(d, "days");
-				// Skip future days
 				if (currentDate.isAfter(today)) continue;
 
 				const dateKey = currentDate.format("YYYY-MM-DD");
@@ -330,7 +309,7 @@ class HeatmapView extends ItemView {
 		this.dailyFiles = {};
 		const dailyCounts = {};
 		const files = this.app.vault.getFiles();
-		const folderPath = this.plugin.settings.targetFolder;
+		const folderPath = this.plugin.settings.trackedFolderPath;
 
 		for (const file of files) {
 			if (!this.isInTargetFolder(file, folderPath)) continue;
@@ -362,7 +341,6 @@ class HeatmapView extends ItemView {
 		popup.style.zIndex = 9999;
 	
 		filesForDate.forEach(path => {
-			// Extract only the filename from the full path
 			const filename = path.split("/").pop();
 			const linkEl = popup.createEl("a", { text: filename });
 			linkEl.href = "#";
@@ -375,8 +353,6 @@ class HeatmapView extends ItemView {
 		});
 	
 		document.body.appendChild(popup);
-	
-		// Adjust if the popup goes off-screen
 		window.requestAnimationFrame(() => {
 			const rect = popup.getBoundingClientRect();
 			if (rect.bottom > window.innerHeight) {
@@ -411,7 +387,6 @@ class HeatmapView extends ItemView {
 		this.resizeObserver = new ResizeObserver((entries) => {
 			for (let entry of entries) {
 				const w = entry.contentRect.width;
-				// Only rebuild if width changes by >= 2px to avoid flicker
 				if (Math.abs(w - this.lastWidth) >= 2) {
 					this.buildHeatmap(w);
 					this.lastWidth = w;
@@ -419,8 +394,6 @@ class HeatmapView extends ItemView {
 			}
 		});
 		this.resizeObserver.observe(this.heatmapContainer);
-
-		// Initial build
 		const initialWidth = this.heatmapContainer.offsetWidth;
 		this.buildHeatmap(initialWidth);
 		this.lastWidth = initialWidth;
@@ -441,7 +414,6 @@ class HeatmapView extends ItemView {
 			const weekDiv = this.gridEl.createDiv({ cls: "heatmap-week" });
 			for (let d = 0; d < 7; d++) {
 				const currentDate = startDate.clone().add(w, "weeks").add(d, "days");
-				// Skip future days
 				if (currentDate.isAfter(today)) continue;
 
 				const dateKey = currentDate.format("YYYY-MM-DD");
@@ -464,7 +436,7 @@ class HeatmapView extends ItemView {
 		this.dailyFiles = {};
 		const dailyCounts = {};
 		const files = this.app.vault.getFiles();
-		const folderPath = this.plugin.settings.targetFolder;
+		const folderPath = this.plugin.settings.trackedFolderPath;
 
 		for (const file of files) {
 			if (!this.isInTargetFolder(file, folderPath)) continue;
@@ -492,20 +464,18 @@ class HeatmapView extends ItemView {
 		if (count === 0) return "#ebedf0";
 		let presetColours = [];
 		try {
-			let presets = JSON.parse(this.plugin.settings.colourwaysPresetJSON);
+			let presets = JSON.parse(this.plugin.settings.colourPresetsJSON);
 			let preset = presets.find(p => p.name === this.plugin.settings.selectedColourway);
 			if (preset && Array.isArray(preset.colours)) {
-				// Validate that each colour is a valid hex code (short or full form)
 				presetColours = preset.colours.filter(c => 
 					typeof c === "string" && /^#(?:[0-9a-fA-F]{3}){1,2}$/.test(c)
 				);
 			}
 		} catch (err) {
-			console.error("Error parsing colourwaysPresetJSON:", err);
+			console.error("Error parsing colourPresetsJSON:", err);
 		}
 		if (!presetColours.length) {
-			// Fallback to default colours if no valid preset colours are found
-			presetColours = ["#FF0000", "#FFA500", "#FFFF00", "#FF1493", "#FF00FF", "#FF4500"];
+			presetColours = ["#d9ed92", "#b5e48c", "#99d98c", "#76c893", "#52b69a", "#34a0a4", "#168aad", "#1a759f", "#1e6091", "#184e77"];
 		}
 		const index = Math.min(count - 1, presetColours.length - 1);
 		return presetColours[index];
@@ -515,20 +485,13 @@ class HeatmapView extends ItemView {
 /** ========== MAIN PLUGIN CLASS ========== */
 module.exports = class HeatmapPlugin extends Plugin {
 	async onload() {
-// Removed unnecessary 		console logging per guidelines
 
 		await this.loadSettings();
-
-		// Register the custom view
 		this.registerView(
 			HEATMAP_VIEW_TYPE,
 			(leaf) => new HeatmapView(leaf, this)
 		);
-
-		// Add settings
 		this.addSettingTab(new HeatmapSettingsTab(this.app, this));
-
-			// Register a command to reopen the heatmap pane if closed
 		this.addCommand({
 			id: "reopen-heatmap-pane",
 			name: "Reopen Heatmap Pane",
@@ -536,8 +499,6 @@ module.exports = class HeatmapPlugin extends Plugin {
 				this.activateView();
 			}
 		});
-
-		// Refresh the heatmap view every hour		
 		this.lastDateChecked = new Date().toDateString();
     	this.registerInterval(window.setInterval(() => {
 			const currentDate = new Date().toDateString();
@@ -545,14 +506,11 @@ module.exports = class HeatmapPlugin extends Plugin {
 				this.lastDateChecked = currentDate;
 				this.refreshHeatmapView();
 			}
-		}, 1000 * 60 * 60)); // checks hourly
-
-		// Automatically open in the left sidebar
+		}, REFRESH_INTERVAL_MS));
 		this.activateView();
 	}
 
 	onunload() {
-		// Per guidelines, do not detach leaves on unload.
 	}
 
 	async activateView() {
@@ -575,7 +533,7 @@ module.exports = class HeatmapPlugin extends Plugin {
 	updateActiveLeaf(updates) {
 		const leaves = this.app.workspace.getLeavesOfType(HEATMAP_VIEW_TYPE);
 		if (leaves.length) {
-			const leaf = leaves[0]; // use first available heatmap leaf
+			const leaf = leaves[0];
 			const currentState = leaf.getViewState();
 			leaf.setViewState({
 				...currentState,
