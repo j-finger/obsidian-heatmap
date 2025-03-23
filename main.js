@@ -6,7 +6,7 @@ const {
 	ItemView,
 	moment,
 	setIcon,
-	normalisePath,
+	normalizePath,
 	TFolder   // NEW: import TFolder for target folder validation
 } = require("obsidian");
 
@@ -77,7 +77,7 @@ class HeatmapSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.targetFolder)
 					.onChange(async (value) => {
 						// Remove extraneous spaces and normalize path
-						let normalizedFolder = normalisePath(value.trim());
+						let normalizedFolder = normalizePath(value.trim());
 						this.plugin.settings.targetFolder = normalizedFolder;
 						// Validate folder – change border color accordingly
 						if (!this.isValidFolder(normalizedFolder)) {
@@ -89,7 +89,7 @@ class HeatmapSettingsTab extends PluginSettingTab {
 						this.plugin.refreshHeatmapView();
 					});
 				// Initial validation using normalized value
-				let normalizedFolder = normalisePath(this.plugin.settings.targetFolder);
+				let normalizedFolder = normalizePath(this.plugin.settings.targetFolder);
 				if (!this.isValidFolder(normalizedFolder)) {
 					text.inputEl.style.borderColor = "red";
 				}
